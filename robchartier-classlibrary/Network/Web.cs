@@ -1,7 +1,7 @@
 using System.IO;
 using System.Net;
 
-namespace RobChartier
+namespace RobChartier.Network
 {
     public class Web
     {
