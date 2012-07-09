@@ -60,14 +60,14 @@
 //    This library handles the common task of reading arguments from a command line 
 //    and filling in the values in a type.
 //
-//    To use this library, define a class whose fields represent the data that your 
+//    To use this library, define a class whose propertys represent the data that your 
 //    application wants to receive from arguments on the command line. Then call 
 //    CommandLine.ParseArguments() to fill the object with the data 
-//    from the command line. Each field in the class defines a command line argument. 
-//    The type of the field is used to validate the data read from the command line. 
-//    The name of the field defines the name of the command line option.
+//    from the command line. Each property in the class defines a command line argument. 
+//    The type of the property is used to validate the data read from the command line. 
+//    The name of the property defines the name of the command line option.
 //
-//    The parser can handle fields of the following types:
+//    The parser can handle propertys of the following types:
 //
 //    - string
 //    - int
@@ -118,7 +118,7 @@
 //        @<file>                             Read response file for more options
 //
 //    That was pretty easy. However, you realy want to omit the "/files:" for the 
-//    list of files. The details of field parsing can be controled using custom 
+//    list of files. The details of property parsing can be controled using custom 
 //    attributes. The attributes which control parsing behaviour are:
 //
 //    ArgumentAttribute 
@@ -126,7 +126,7 @@
 //        and help text
 //    DefaultArgumentAttribute 
 //        - allows omition of the "/name".
-//        - This attribute is allowed on only one field in the argument class.
+//        - This attribute is allowed on only one property in the argument class.
 //
 //    So for the wc.exe program we want this:
 //
@@ -217,7 +217,7 @@ namespace RobChartier.CommandLine
     public enum ArgumentType
     {
         /// <summary>
-        /// Indicates that this field is required. An error will be displayed
+        /// Indicates that this property is required. An error will be displayed
         /// if it is not present when parsing arguments.
         /// </summary>
         Required = 0x01,
@@ -255,10 +255,10 @@ namespace RobChartier.CommandLine
 
     /// <summary>
     /// Allows control of command line parsing.
-    /// Attach this attribute to instance fields of types used
+    /// Attach this attribute to instance propertys of types used
     /// as the destination of command line argument parsing.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Property)]
     public class ArgumentAttribute : Attribute
     {
         /// <summary>
@@ -375,19 +375,19 @@ namespace RobChartier.CommandLine
     /// <summary>
     /// Parser for command line arguments.
     ///
-    /// The parser specification is infered from the instance fields of the object
+    /// The parser specification is infered from the instance propertys of the object
     /// specified as the destination of the parse.
     /// Valid argument types are: int, uint, string, bool, enums
     /// Also argument types of Array of the above types are also valid.
     /// 
     /// Error checking options can be controlled by adding a ArgumentAttribute
-    /// to the instance fields of the destination object.
+    /// to the instance propertys of the destination object.
     ///
-    /// At most one field may be marked with the DefaultArgumentAttribute
+    /// At most one property may be marked with the DefaultArgumentAttribute
     /// indicating that arguments without a '-' or '/' prefix will be parsed as that argument.
     ///
     /// If not specified then the parser will infer default options for parsing each
-    /// instance field. The default long name of the argument is the field name. The
+    /// instance property. The default long name of the argument is the property name. The
     /// default short name is the first character of the long name. Long names and explicitly
     /// specified short names must be unique. Default short names will be used provided that
     /// the default short name does not conflict with a long name or an explicitly
@@ -462,8 +462,12 @@ namespace RobChartier.CommandLine
 
         private class HelpArgument
         {
+            public HelpArgument()
+            {
+                help = false;
+            }
             [ArgumentAttribute(ArgumentType.AtMostOnce, ShortName = "?")]
-            public bool help = false;
+            public bool help { get; set; }
         }
 
         /// <summary>
@@ -602,19 +606,20 @@ namespace RobChartier.CommandLine
             this.arguments = new ArrayList();
             this.argumentMap = new Hashtable();
 
-            foreach (FieldInfo field in argumentSpecification.GetFields())
+            foreach (PropertyInfo prop in argumentSpecification.GetProperties())
             {
-                if (!field.IsStatic && !field.IsInitOnly && !field.IsLiteral)
+                MethodInfo propMethod = prop.GetGetMethod();
+                if (!propMethod.IsStatic)
                 {
-                    ArgumentAttribute attribute = GetAttribute(field);
+                    ArgumentAttribute attribute = GetAttribute(prop);
                     if (attribute is DefaultArgumentAttribute)
                     {
                         Debug.Assert(this.defaultArgument == null);
-                        this.defaultArgument = new Argument(attribute, field, reporter);
+                        this.defaultArgument = new Argument(attribute, prop, reporter);
                     }
                     else
                     {
-                        this.arguments.Add(new Argument(attribute, field, reporter));
+                        this.arguments.Add(new Argument(attribute, prop, reporter));
                     }
                 }
             }
@@ -651,9 +656,9 @@ namespace RobChartier.CommandLine
             }
         }
 
-        private static ArgumentAttribute GetAttribute(FieldInfo field)
+        private static ArgumentAttribute GetAttribute(PropertyInfo property)
         {
-            object[] attributes = field.GetCustomAttributes(typeof(ArgumentAttribute), false);
+            object[] attributes = property.GetCustomAttributes(typeof(ArgumentAttribute), false);
             if (attributes.Length == 1)
                 return (ArgumentAttribute)attributes[0];
 
@@ -1012,21 +1017,21 @@ namespace RobChartier.CommandLine
             return hadError;
         }
 
-        private static string LongName(ArgumentAttribute attribute, FieldInfo field)
+        private static string LongName(ArgumentAttribute attribute, PropertyInfo property)
         {
-            return (attribute == null || attribute.DefaultLongName) ? field.Name : attribute.LongName;
+            return (attribute == null || attribute.DefaultLongName) ? property.Name : attribute.LongName;
         }
 
-        private static string ShortName(ArgumentAttribute attribute, FieldInfo field)
+        private static string ShortName(ArgumentAttribute attribute, PropertyInfo property)
         {
             if (attribute is DefaultArgumentAttribute)
                 return null;
             if (!ExplicitShortName(attribute))
-                return LongName(attribute, field).Substring(0, 1);
+                return LongName(attribute, property).Substring(0, 1);
             return attribute.ShortName;
         }
 
-        private static string HelpText(ArgumentAttribute attribute, FieldInfo field)
+        private static string HelpText(ArgumentAttribute attribute, PropertyInfo property)
         {
             if (attribute == null)
                 return null;
@@ -1044,24 +1049,24 @@ namespace RobChartier.CommandLine
             return (attribute != null && !attribute.DefaultShortName);
         }
 
-        private static object DefaultValue(ArgumentAttribute attribute, FieldInfo field)
+        private static object DefaultValue(ArgumentAttribute attribute, PropertyInfo property)
         {
             return (attribute == null || !attribute.HasDefaultValue) ? null : attribute.DefaultValue;
         }
 
-        private static Type ElementType(FieldInfo field)
+        private static Type ElementType(PropertyInfo property)
         {
-            if (IsCollectionType(field.FieldType))
-                return field.FieldType.GetElementType();
+            if (IsCollectionType(property.PropertyType))
+                return property.PropertyType.GetElementType();
             else
                 return null;
         }
 
-        private static ArgumentType Flags(ArgumentAttribute attribute, FieldInfo field)
+        private static ArgumentType Flags(ArgumentAttribute attribute, PropertyInfo property)
         {
             if (attribute != null)
                 return attribute.Type;
-            else if (IsCollectionType(field.FieldType))
+            else if (IsCollectionType(property.PropertyType))
                 return ArgumentType.MultipleUnique;
             else
                 return ArgumentType.AtMostOnce;
@@ -1084,17 +1089,17 @@ namespace RobChartier.CommandLine
 
         private class Argument
         {
-            public Argument(ArgumentAttribute attribute, FieldInfo field, ErrorReporter reporter)
+            public Argument(ArgumentAttribute attribute, PropertyInfo property, ErrorReporter reporter)
             {
-                this.longName = Parser.LongName(attribute, field);
+                this.longName = Parser.LongName(attribute, property);
                 this.explicitShortName = Parser.ExplicitShortName(attribute);
-                this.shortName = Parser.ShortName(attribute, field);
+                this.shortName = Parser.ShortName(attribute, property);
                 this.hasHelpText = Parser.HasHelpText(attribute);
-                this.helpText = Parser.HelpText(attribute, field);
-                this.defaultValue = Parser.DefaultValue(attribute, field);
-                this.elementType = ElementType(field);
-                this.flags = Flags(attribute, field);
-                this.field = field;
+                this.helpText = Parser.HelpText(attribute, property);
+                this.defaultValue = Parser.DefaultValue(attribute, property);
+                this.elementType = ElementType(property);
+                this.flags = Flags(attribute, property);
+                this.property = property;
                 this.seenValue = false;
                 this.reporter = reporter;
                 this.isDefault = attribute != null && attribute is DefaultArgumentAttribute;
@@ -1113,18 +1118,18 @@ namespace RobChartier.CommandLine
                 Debug.Assert((IsCollection && IsValidElementType(elementType)) ||
                     (!IsCollection && elementType == null));
                 Debug.Assert(!(this.IsRequired && this.HasDefaultValue), "Required arguments cannot have default value");
-                Debug.Assert(!this.HasDefaultValue || (this.defaultValue.GetType() == field.FieldType), "Type of default value must match field type");
+                Debug.Assert(!this.HasDefaultValue || (this.defaultValue.GetType() == property.PropertyType), "Type of default value must match property type");
             }
 
             public bool Finish(object destination)
             {
                 if (!this.SeenValue && this.HasDefaultValue)
                 {
-                    this.field.SetValue(destination, this.DefaultValue);
+                    this.property.SetValue(destination, this.DefaultValue, null);
                 }
                 if (this.IsCollection)
                 {
-                    this.field.SetValue(destination, this.collectionValues.ToArray(this.elementType));
+                    this.property.SetValue(destination, this.collectionValues.ToArray(this.elementType), null);
                 }
 
                 return ReportMissingRequiredArgument();
@@ -1174,7 +1179,7 @@ namespace RobChartier.CommandLine
                 }
                 else
                 {
-                    this.field.SetValue(destination, newValue);
+                    this.property.SetValue(destination, newValue, null);
                 }
 
                 return true;
@@ -1382,15 +1387,15 @@ namespace RobChartier.CommandLine
 
                             builder.Append(":{");
                             bool first = true;
-                            foreach (FieldInfo field in valueType.GetFields())
+                            foreach (PropertyInfo property in valueType.GetProperties())
                             {
-                                if (field.IsStatic)
+                                if (property.GetGetMethod().IsStatic)
                                 {
                                     if (first)
                                         first = false;
                                     else
                                         builder.Append('|');
-                                    builder.Append(field.Name);
+                                    builder.Append(property.Name);
                                 }
                             }
                             builder.Append('}');
@@ -1423,7 +1428,7 @@ namespace RobChartier.CommandLine
 
             public Type Type
             {
-                get { return field.FieldType; }
+                get { return property.PropertyType; }
             }
 
             public bool IsCollection
@@ -1443,7 +1448,7 @@ namespace RobChartier.CommandLine
             private bool explicitShortName;
             private object defaultValue;
             private bool seenValue;
-            private FieldInfo field;
+            private PropertyInfo property;
             private Type elementType;
             private ArgumentType flags;
             private ArrayList collectionValues;
