@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>Rob.Chartier.Class.Library</id>
+    <version>1.0.0</version>
+    <authors>Rob Chartier, et al.</authors>
+    <description>Yet another seeming useless class library of utilities.</description>
+  </metadata>
+  <files>
+    <file src="robchartier-classlibrary\bin\debug\RobChartier.*" target="lib\net40" />
+  </files>
+</package>
